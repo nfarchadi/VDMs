@@ -4,27 +4,50 @@ author: "Nima"
 date: "3/30/2020"
 output: html_document
 ---
+## Open packages needed
+```{r setup}
+library(tidyverse)
+library(dplyr) # for the pipe operator (%>%)
+```
+Retreive all the csvs for a particular month and import them into one large dataframe
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r}
+setwd("E:/VDMs/fishing_effort/fishing_effort/daily_csvs")
+filepath <- "E:/VDMs/fishing_effort/fishing_effort/daily_csvs"
+filenames <- list.files(path = filepath, pattern = "2016-05") #Specifying that I only want files for xxx_2016
+filenames #making sure they are correct
+May_2016 <- do.call(rbind,lapply(filenames,read.csv)) #this code will read all the files I specified and import them into 1 dataframe
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+Transform data across all fleets and geartypes
+```{r}
+May_2016 <- May_2016 %>% 
+  mutate(
+    # convert from hundreths of a degree to degrees
+    lat_bin = lat_bin / 100, 
+    lon_bin = lon_bin / 100) %>% 
+  group_by(date, lon_bin, lat_bin, flag, geartype) %>% # Re-aggregate the data to 0.25 degrees
+  summarize(vessel_hours = sum(vessel_hours, na.rm = T),
+            fishing_hours = sum(fishing_hours, na.rm = T),
+            mmsi_present  = sum(mmsi_present, na.rm = T)) %>%
+  filter(lat_bin <= 46 & lat_bin >= 23 , lon_bin >= -100 & lon_bin <= -60) %>% #making the extent to be of the Northwest Atlantic (NWA) and just longlines 
+  group_by(date,lon_bin,lat_bin,geartype) %>% #identifying presence-absence 
+  summarize(n=n())%>%
+  ungroup() %>%
+  spread(geartype, n, fill=0) %>% 
+  mutate(drifting_longlines = ifelse(drifting_longlines >= 1, 1, drifting_longlines),
+         fixed_gear = ifelse(fixed_gear >= 1, 1, fixed_gear),
+         other_fishing = ifelse(other_fishing >= 1, 1, other_fishing),
+         purse_seines = ifelse(purse_seines >= 1, 1, purse_seines),
+         #squid_jigger = ifelse(squid_jigger >= 1, 1, squid_jigger),
+         trawlers = ifelse(trawlers >= 1, 1, trawlers)) #making the extent to be of the Northwest Atlantic (NWA) and just longlines 
 ```
+Exporting the data as a csv and delete the dataframe
 
-## Including Plots
+```{r}
+#export as a csv
+write.csv(May_2016,"E:/VDMs/fishing_effort/fishing_effort/Monthly_longline_csvs/May_2016.csv", row.names = TRUE)
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+#erase dataframe to save memory
+rm(May_2016)
 ```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
