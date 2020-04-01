@@ -1,3 +1,6 @@
+library(dplyr) # for the pipe operator (%>%)
+library(tidyverse)
+
 ###Code for processing the AIS data to show presence/absence for each geartype for each location in the NWS
 #need to figure out how to loop this. So far it is separated by month and I just manually change the year with "Find and Replace"
 
